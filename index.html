@@ -21,23 +21,24 @@
             align-items: center;
             height: 100vh;
             margin: 0;
+            overflow: hidden;
         }
 
         #terminal-window {
             width: 90%;
-            max-width: 800px;
-            height: 550px;
+            max-width: 850px;
+            height: 600px;
             background-color: var(--terminal-bg);
             border: 2px solid var(--border-blue);
             border-radius: 8px;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 0 20px rgba(0, 170, 255, 0.3);
+            box-shadow: 0 0 25px rgba(0, 170, 255, 0.3);
         }
 
         .terminal-header {
             background-color: #222;
-            padding: 8px 15px;
+            padding: 10px 15px;
             display: flex;
             align-items: center;
             border-bottom: 1px solid #333;
@@ -45,7 +46,7 @@
 
         .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
         .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
-        .title { color: #888; font-size: 11px; margin-left: 10px; font-weight: bold; }
+        .title { color: #888; font-size: 11px; margin-left: 10px; font-weight: bold; text-transform: uppercase; }
 
         .terminal-body {
             flex: 1;
@@ -61,6 +62,7 @@
             color: var(--text-blue);
             font-size: 14px;
             margin-bottom: 15px;
+            line-height: 1.4;
         }
 
         .input-area { 
@@ -76,23 +78,30 @@
             outline: none;
             flex: 1;
             font-family: inherit;
+            font-size: 14px;
+            padding-left: 10px;
         }
 
         .prefix { color: var(--prompt-green); font-weight: bold; }
+        
+        /* Dashboard Styling */
         .stat-row { 
             display: grid; 
-            grid-template-columns: 220px 100px 150px; 
+            grid-template-columns: 200px 100px 180px; 
             border-bottom: 1px solid #222;
-            padding: 4px 0;
+            padding: 5px 0;
         }
         .stat-name { color: var(--text-blue); }
         .stat-val { color: #fff; font-weight: bold; }
-        .stat-id { color: #555; font-size: 12px; }
+        .stat-id { color: #444; font-size: 12px; }
 
         .success { color: #5af78e; }
         .error { color: #ff5555; }
         .info { color: #00ffff; }
+        .white { color: #ffffff; }
 
+        #history::-webkit-scrollbar { width: 6px; }
+        #history::-webkit-scrollbar-thumb { background: var(--border-blue); border-radius: 10px; }
         #file-input, #editor, #btn-final { display: none; }
     </style>
 </head>
@@ -101,7 +110,7 @@
 <div id="terminal-window">
     <div class="terminal-header">
         <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
-        <span class="title">GILMER MOTORS - GD SAVE ENGINE v3.0</span>
+        <span class="title">GILMER MOTORS - GD SAVE ENGINE v3.1 (LUNAS UPDATE)</span>
     </div>
     <div class="terminal-body">
         <div id="history"></div>
@@ -123,14 +132,15 @@ const fileInput = document.getElementById('file-input');
 const editor = document.getElementById('editor');
 const btnFinal = document.getElementById('btn-final');
 
-// MAPEO DEFINITIVO (Sincronizado con tu Python)
+// MAPEO ACTUALIZADO SEGÚN TU ÚLTIMO SCRIPT PYTHON
 const GD_KEYS = {
     'star': '6',        
-    'diamond': '13',    
-    'secret': '8',      
+    'demon': '5',       
     'usercoin': '12',   
-    'demon': '10',      
-    'orb': '14'         
+    'diamond': '13',    
+    'moon': '28',
+    'secret': '8',
+    'orb': '14'
 };
 
 function addLine(text, cls = '') {
@@ -141,7 +151,7 @@ function addLine(text, cls = '') {
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[SISTEMA LISTO]</b> - Gilmer Motors Dashboard", "info");
+addLine("<b>[!] SISTEMA INICIADO</b> - Mapeo Gilmer Motors", "info");
 addLine("Escribe <b>'import'</b> para cargar el archivo .dat");
 
 async function decrypt(file) {
@@ -156,11 +166,12 @@ async function decrypt(file) {
 }
 
 function updateVal(name, val) {
-    if(!editor.value) return addLine("Error: No hay datos.", "error");
+    if(!editor.value) return addLine("Error: No hay archivo cargado.", "error");
     const id = GD_KEYS[name];
-    if(!id) return addLine("Clave no reconocida.", "error");
+    if(!id) return addLine(`Clave '${name}' no reconocida.`, "error");
 
     let xml = editor.value;
+    // Buscamos el bloque GS_value para evitar errores
     const regexS = new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)`);
     const regexI = new RegExp(`(<k>${id}</k><i>)(-?\\d*)(</i>)`);
 
@@ -168,26 +179,26 @@ function updateVal(name, val) {
     else if(regexI.test(xml)) xml = xml.replace(regexI, `$1${val}$3`);
     
     editor.value = xml;
-    addLine(`[✓] ${name.toUpperCase()} (ID ${id}) actualizado a ${val}`, "success");
+    addLine(`[✓] ${name.toUpperCase()} fijado en ${val}`, "success");
 }
 
 function showDashboard() {
     const xml = editor.value;
-    addLine("<br><b>--- DASHBOARD DE ESTADÍSTICAS ---</b>", "white");
+    addLine("<br><b class='white'>--- TUS STATS REALES (DASHBOARD) ---</b>", "");
     for (const [name, id] of Object.entries(GD_KEYS)) {
         const mS = xml.match(new RegExp(`<k>${id}</k><s>(\\d+)</s>`));
         const mI = xml.match(new RegExp(`<k>${id}</k><i>(\\d+)</i>`));
         const val = mS ? mS[1] : (mI ? mI[1] : '0');
-        const tipo = mS ? 'String' : (mI ? 'Int' : 'N/A');
         
         addLine(`
             <div class="stat-row">
                 <span class="stat-name">${name.toUpperCase()}</span>
                 <span class="stat-val">${val}</span>
-                <span class="stat-id">ID ${id} (${tipo})</span>
+                <span class="stat-id">ID ${id}</span>
             </div>
         `);
     }
+    addLine(" ");
 }
 
 cmdInput.onkeydown = (e) => {
@@ -201,6 +212,7 @@ cmdInput.onkeydown = (e) => {
         else if(p[0] === 'stat') showDashboard();
         else if(p[0] === 'save') btnFinal.click();
         else if(p[0] === 'clear') historyDiv.innerHTML = '';
+        else if(p[0] === 'help') addLine("Comandos: import, stat, [item] add [n], save, clear");
         else if(p.length === 3 && p[1] === 'add') updateVal(p[0], p[2]);
     }
 };
@@ -208,9 +220,9 @@ cmdInput.onkeydown = (e) => {
 fileInput.onchange = async (e) => {
     try {
         editor.value = await decrypt(e.target.files[0]);
-        addLine("ARCHIVO DESENCRIPTADO.", "success");
+        addLine("SINCRO: Archivo cargado correctamente.", "success");
         showDashboard();
-    } catch(err) { addLine("ERROR AL PROCESAR ARCHIVO.", "error"); }
+    } catch(err) { addLine("ERROR AL LEER: El archivo no es válido.", "error"); }
 };
 
 btnFinal.onclick = () => {
@@ -225,7 +237,7 @@ btnFinal.onclick = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'CCGameManager.dat'; a.click();
-    addLine("SAVE: Archivo generado.", "success");
+    addLine("SAVE: Archivo generado listo para descargar.", "success");
 };
 </script>
 </body>
