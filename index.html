@@ -2,31 +2,31 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gilmer Motors - GD Save Engine v3.5</title>
+    <title>Gilmer Motors - GD Save Engine v3.6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
         :root { --bg: #0a0a0a; --term: #121212; --blue: #33aaff; --green: #5af78e; }
-        body { background: var(--bg); font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; }
-        #window { width: 90%; max-width: 850px; height: 600px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0, 170, 255, 0.2); }
-        .header { background: #222; padding: 10px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase; }
+        body { background: var(--bg); font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; overflow: hidden; }
+        #window { width: 90%; max-width: 850px; height: 600px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 40px rgba(0, 170, 255, 0.2); }
+        .header { background: #222; padding: 12px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; letter-spacing: 1px; }
         .body { flex: 1; padding: 20px; overflow: hidden; display: flex; flex-direction: column; }
-        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; line-height: 1.4; }
-        .input-area { display: flex; border-top: 1px solid #333; padding-top: 10px; }
+        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; line-height: 1.5; }
+        .input-area { display: flex; border-top: 1px solid #333; padding-top: 12px; }
         #cmd { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; font-size: 14px; }
         .success { color: var(--green); } .error { color: #ff5555; } .info { color: #00ffff; }
-        .stat-row { display: grid; grid-template-columns: 180px 100px 150px; border-bottom: 1px solid #222; padding: 4px 0; }
+        .stat-row { display: grid; grid-template-columns: 200px 100px 150px; border-bottom: 1px solid #222; padding: 5px 0; }
         #file-input { display: none; }
     </style>
 </head>
 <body>
 
 <div id="window">
-    <div class="header">GILMER MOTORS - GD ENGINE v3.5 (HARD OVERWRITE)</div>
+    <div class="header">GILMER MOTORS - GD ENGINE v3.6 (GLOBAL CLEANER MODE)</div>
     <div class="body">
         <div id="history"></div>
         <div class="input-area">
             <span style="color:var(--green); margin-right:10px;">User@nobara:~$</span>
-            <input type="text" id="cmd" autofocus spellcheck="false">
+            <input type="text" id="cmd" autofocus spellcheck="false" placeholder="Escribe 'import'...">
         </div>
     </div>
 </div>
@@ -38,9 +38,9 @@ const historyDiv = document.getElementById('history');
 const cmdInput = document.getElementById('cmd');
 const fileInput = document.getElementById('file-input');
 
-// ESTADO GLOBAL DEL XML
 let currentXML = "";
 
+// IDs verificadas en tu entorno Wine/Python
 const GD_KEYS = {
     'star': '6', 'demon': '5', 'usercoin': '12', 'orb': '14', 'diamond': '13', 'moon': '28', 'secret': '8'
 };
@@ -52,8 +52,7 @@ function addLine(text, cls = '') {
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[!] MOTOR v3.5 CARGADO</b>", "info");
-addLine("Comandos: <b>import</b>, <b>stat</b>, <b>[stat] add [valor]</b>, <b>save</b>");
+addLine("<b>[SISTEMA OPERATIVO GD]</b> v3.6 - Listo para intervención.", "info");
 
 async function decrypt(file) {
     const ab = await file.arrayBuffer();
@@ -67,29 +66,33 @@ async function decrypt(file) {
 }
 
 function updateVal(name, newVal) {
-    if(!currentXML) return addLine("ERROR: No hay archivo en memoria.", "error");
+    if(!currentXML) return addLine("ERROR: Archivo no cargado.", "error");
     const id = GD_KEYS[name];
-    if(!id) return addLine("ID no válida.", "error");
+    if(!id) return addLine("ID desconocida.", "error");
 
-    // Buscamos todas las variantes (s, i, r) con regex global
+    // REEMPLAZO GLOBAL AGRESIVO:
+    // Buscamos cualquier <k>ID</k> seguido de cualquier etiqueta de valor y reemplazamos TODO.
     const regex = new RegExp(`(<k>${id}</k><[sir]>)([^<]*)(</[sir]>)`, 'g');
     
     if(regex.test(currentXML)) {
+        const matches = currentXML.match(regex).length;
         currentXML = currentXML.replace(regex, `$1${newVal}$3`);
-        addLine(`[EXITO] ${name.toUpperCase()} (ID ${id}) cambiado a ${newVal}`, "success");
+        addLine(`[OK] ${name.toUpperCase()}: ${matches} instancias actualizadas a ${newVal}`, "success");
     } else {
-        // Inyección si no existe
-        currentXML = currentXML.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${newVal}</s>`);
-        addLine(`[INYECCIÓN] ID ${id} creado de cero.`, "info");
+        // Si no existe ni una sola vez, lo forzamos en el bloque GS_value
+        const injection = `<k>${id}</k><s>${newVal}</s>`;
+        currentXML = currentXML.replace('<k>GS_value</k><d>', `<k>GS_value</k><d>${injection}`);
+        addLine(`[!] ${name.toUpperCase()}: No se encontró rastro, inyectando nuevo ID ${id}.`, "info");
     }
 }
 
 function showStats() {
-    if(!currentXML) return addLine("Importa un archivo primero.", "error");
-    addLine("<br><b>LECTURA DE MEMORIA ACTUAL:</b>", "info");
+    if(!currentXML) return;
+    addLine("<br><b>SCANNER DE ESTADÍSTICAS (RAM):</b>", "info");
     for (const [name, id] of Object.entries(GD_KEYS)) {
+        // Buscamos la primera ocurrencia para el dashboard
         const match = currentXML.match(new RegExp(`<k>${id}</k><[sir]>([^<]*)</[sir]>`));
-        const val = match ? match[1] : "0";
+        const val = match ? match[1] : "---";
         addLine(`<div class="stat-row"><span>${name.toUpperCase()}</span><span>${val}</span><span style="color:#444">ID ${id}</span></div>`);
     }
 }
@@ -104,17 +107,20 @@ cmdInput.onkeydown = (e) => {
         if(p[0] === 'import') fileInput.click();
         else if(p[0] === 'stat') showStats();
         else if(p[0] === 'save') exportFile();
-        else if(p.length === 3 && p[1] === 'add') updateVal(p[0], p[2]);
         else if(p[0] === 'clear') historyDiv.innerHTML = '';
+        else if(p.length === 3 && p[1] === 'add') {
+            updateVal(p[0], p[2]);
+            showStats(); // Verificación inmediata
+        }
     }
 };
 
 fileInput.onchange = async (e) => {
     try {
         currentXML = await decrypt(e.target.files[0]);
-        addLine("SINCRO: Archivo cargado en memoria RAM.", "success");
+        addLine("SINCRO: Memoria RAM actualizada.", "success");
         showStats();
-    } catch(err) { addLine("ERROR: No se pudo descifrar.", "error"); }
+    } catch(err) { addLine("ERROR: Fallo en el descifrado.", "error"); }
 };
 
 function exportFile() {
@@ -131,8 +137,8 @@ function exportFile() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = 'CCGameManager.dat'; a.click();
-        addLine("SAVE: Archivo generado. Verifica con 'stat' antes de cerrar.", "success");
-    } catch(e) { addLine("ERROR AL GUARDAR: " + e, "error"); }
+        addLine("<b>ARCHIVO GENERADO.</b> Reemplázalo y reinicia el juego.", "success");
+    } catch(e) { addLine("ERROR AL EXPORTAR.", "error"); }
 }
 </script>
 </body>
