@@ -2,26 +2,26 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gilmer Motors - GD Save Engine v3.3</title>
+    <title>Gilmer Motors - GD Save Engine v3.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
         :root { --bg: #0a0a0a; --term: #121212; --blue: #33aaff; --green: #5af78e; }
         body { background: var(--bg); font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; }
         #window { width: 90%; max-width: 850px; height: 600px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0, 170, 255, 0.2); }
-        .header { background: #222; padding: 10px; display: flex; border-bottom: 1px solid #333; font-size: 11px; font-weight: bold; color: #888; }
+        .header { background: #222; padding: 10px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; }
         .body { flex: 1; padding: 20px; overflow: hidden; display: flex; flex-direction: column; }
         #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; }
         .input-area { display: flex; border-top: 1px solid #333; padding-top: 10px; }
         #cmd { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; }
-        .stat-row { display: grid; grid-template-columns: 180px 100px 150px; border-bottom: 1px solid #222; padding: 5px 0; }
         .success { color: var(--green); } .error { color: #ff5555; } .info { color: #00ffff; }
+        .stat-row { display: grid; grid-template-columns: 180px 100px 150px; border-bottom: 1px solid #222; padding: 4px 0; }
         #file-input, #editor { display: none; }
     </style>
 </head>
 <body>
 
 <div id="window">
-    <div class="header">GILMER MOTORS - GD ENGINE v3.3 (DEEP REPLACEMENT MODE)</div>
+    <div class="header">GILMER MOTORS - TOTAL OVERWRITE MODE v3.4</div>
     <div class="body">
         <div id="history"></div>
         <div class="input-area">
@@ -40,6 +40,7 @@ const cmdInput = document.getElementById('cmd');
 const fileInput = document.getElementById('file-input');
 const editor = document.getElementById('editor');
 
+// Tu mapeo verificado por Python
 const GD_KEYS = {
     'star': '6', 'demon': '5', 'usercoin': '12', 'orb': '14', 'diamond': '13', 'moon': '28', 'secret': '8'
 };
@@ -51,8 +52,8 @@ function addLine(text, cls = '') {
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[SISTEMA CRÍTICO]</b> Cargado con éxito.", "info");
-addLine("Escribe 'import' para empezar.");
+addLine("<b>[MODO AGRESIVO ACTIVADO]</b>", "info");
+addLine("Este modo reemplaza TODAS las instancias de la estadística en el XML.");
 
 async function decrypt(file) {
     const ab = await file.arrayBuffer();
@@ -65,46 +66,46 @@ async function decrypt(file) {
     return new TextDecoder().decode(pako.inflate(gBytes));
 }
 
-function updateVal(name, val) {
-    if(!editor.value) return addLine("ERROR: Importa un archivo primero.", "error");
+function updateVal(name, newVal) {
+    if(!editor.value) return addLine("ERROR: Importa el archivo primero.", "error");
     const id = GD_KEYS[name];
-    if(!id) return addLine("Atributo no válido.", "error");
+    if(!id) return addLine("ID no válida.", "error");
 
     let xml = editor.value;
     
-    // EXPRESIONES REGULARES PARA BUSCAR CUALQUIER TIPO DE DATO (s, i, r)
+    // REEMPLAZO TOTAL: Buscamos la clave y cambiamos su valor sin importar dónde esté (GS_value u otros)
+    // El regex ahora es global 'g' para atrapar duplicados
     const patterns = [
-        new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)` , 'g'),
-        new RegExp(`(<k>${id}</k><i>)([^<]*)(</i>)` , 'g'),
-        new RegExp(`(<k>${id}</k><r>)([^<]*)(</r>)` , 'g')
+        { reg: new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)`, 'g'), type: "String" },
+        { reg: new RegExp(`(<k>${id}</k><i>)([^<]*)(</i>)`, 'g'), type: "Integer" }
     ];
 
-    let found = false;
-    patterns.forEach((reg, index) => {
-        if(reg.test(xml)) {
-            xml = xml.replace(reg, `$1${val}$3`);
-            found = true;
-            const tipos = ["String", "Integer", "Real"];
-            addLine(`[MODIFICADO] ${name} (ID ${id}) detectado como ${tipos[index]}.`, "success");
+    let count = 0;
+    patterns.forEach(p => {
+        if(p.reg.test(xml)) {
+            xml = xml.replace(p.reg, `$1${newVal}$3`);
+            count++;
         }
     });
 
-    if(!found) {
-        addLine(`[INFO] ID ${id} no existía. Creando nueva entrada...`, "info");
-        // Insertar después de la cabecera de valores
-        xml = xml.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${val}</s>`);
+    if (count > 0) {
+        editor.value = xml;
+        addLine(`[EXITO] Se actualizaron ${count} campos para ${name.toUpperCase()}.`, "success");
+        addLine(`Valor nuevo: ${newVal}`, "white");
+    } else {
+        // Si no existe, lo inyectamos forzosamente en el bloque principal
+        xml = xml.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${newVal}</s>`);
+        editor.value = xml;
+        addLine(`[INYECCIÓN] La estadística no existía, se ha creado de cero.`, "info");
     }
-
-    editor.value = xml;
-    addLine(`Confirmado: ${name} ahora es ${val}. Ejecuta 'stat' para verificar.`, "white");
 }
 
 function showStats() {
     const xml = editor.value;
-    addLine("<br><b>LECTURA ACTUAL DEL XML:</b>", "info");
+    addLine("<br><b>ESTADO DEL ARCHIVO:</b>", "info");
     for (const [name, id] of Object.entries(GD_KEYS)) {
-        const match = xml.match(new RegExp(`<k>${id}</k><[sir]>([^<]*)</[sir]>`));
-        const val = match ? match[1] : "0";
+        const match = xml.match(new RegExp(`<k>${id}</k><[si]>([^<]*)</[si]>`));
+        const val = match ? match[1] : "No detectado";
         addLine(`<div class="stat-row"><span>${name.toUpperCase()}</span><span>${val}</span><span style="color:#444">ID ${id}</span></div>`);
     }
 }
@@ -119,17 +120,17 @@ cmdInput.onkeydown = (e) => {
         if(p[0] === 'import') fileInput.click();
         else if(p[0] === 'stat') showStats();
         else if(p[0] === 'save') exportFile();
-        else if(p[0] === 'clear') historyDiv.innerHTML = '';
         else if(p.length === 3 && p[1] === 'add') updateVal(p[0], p[2]);
+        else if(p[0] === 'clear') historyDiv.innerHTML = '';
     }
 };
 
 fileInput.onchange = async (e) => {
     try {
         editor.value = await decrypt(e.target.files[0]);
-        addLine("SINCRO: CCGameManager descifrado.", "success");
+        addLine("SINCRO: CCGameManager descifrado correctamente.", "success");
         showStats();
-    } catch(err) { addLine("ERROR FATAL: El archivo está corrupto o es de otra versión.", "error"); }
+    } catch(err) { addLine("ERROR: Fallo al abrir el archivo.", "error"); }
 };
 
 function exportFile() {
@@ -144,7 +145,7 @@ function exportFile() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'CCGameManager.dat'; a.click();
-    addLine("DESCARGA: Archivo listo para Wine/AppData.", "success");
+    addLine("SAVE: Archivo exportado. Reemplázalo en tu carpeta de Wine.", "success");
 }
 </script>
 </body>
