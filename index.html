@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gilmer Motors - GD Save Editor</title>
+    <title>Nobara Terminal - GD Save Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
         :root {
             --bg-dark: #0a0a0a;
-            --terminal-bg: #111111;
+            --terminal-bg: #121212;
             --border-blue: #33aaff;
             --text-blue: #33aaff;
             --prompt-green: #5af78e;
@@ -15,7 +15,7 @@
 
         body {
             background-color: var(--bg-dark);
-            font-family: 'Consolas', monospace;
+            font-family: 'Consolas', 'Monaco', monospace;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -31,9 +31,9 @@
             background-color: var(--terminal-bg);
             border: 2px solid var(--border-blue);
             border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 170, 255, 0.25);
             display: flex;
             flex-direction: column;
-            box-shadow: 0 0 25px rgba(0, 170, 255, 0.3);
         }
 
         .terminal-header {
@@ -62,11 +62,12 @@
             color: var(--text-blue);
             font-size: 14px;
             margin-bottom: 15px;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
         .input-area { 
             display: flex; 
+            align-items: center;
             border-top: 1px solid #333;
             padding-top: 15px;
         }
@@ -84,21 +85,20 @@
 
         .prefix { color: var(--prompt-green); font-weight: bold; }
         
-        /* Dashboard Styling */
+        /* Dashboard Estilo Python */
         .stat-row { 
             display: grid; 
             grid-template-columns: 200px 100px 180px; 
             border-bottom: 1px solid #222;
-            padding: 5px 0;
+            padding: 4px 0;
         }
         .stat-name { color: var(--text-blue); }
         .stat-val { color: #fff; font-weight: bold; }
-        .stat-id { color: #444; font-size: 12px; }
+        .stat-id { color: #555; font-size: 12px; }
 
         .success { color: #5af78e; }
         .error { color: #ff5555; }
         .info { color: #00ffff; }
-        .white { color: #ffffff; }
 
         #history::-webkit-scrollbar { width: 6px; }
         #history::-webkit-scrollbar-thumb { background: var(--border-blue); border-radius: 10px; }
@@ -110,7 +110,7 @@
 <div id="terminal-window">
     <div class="terminal-header">
         <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
-        <span class="title">GILMER MOTORS - GD SAVE ENGINE v3.1 (LUNAS UPDATE)</span>
+        <span class="title">GILMER MOTORS - GD SAVE ENGINE v3.2</span>
     </div>
     <div class="terminal-body">
         <div id="history"></div>
@@ -132,15 +132,14 @@ const fileInput = document.getElementById('file-input');
 const editor = document.getElementById('editor');
 const btnFinal = document.getElementById('btn-final');
 
-// MAPEO ACTUALIZADO SEGÚN TU ÚLTIMO SCRIPT PYTHON
+// MAPEO DETECTADO POR TU SCRIPT PYTHON
 const GD_KEYS = {
     'star': '6',        
     'demon': '5',       
     'usercoin': '12',   
+    'orb': '14',       
     'diamond': '13',    
-    'moon': '28',
-    'secret': '8',
-    'orb': '14'
+    'moon': '28'        
 };
 
 function addLine(text, cls = '') {
@@ -151,8 +150,8 @@ function addLine(text, cls = '') {
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[!] SISTEMA INICIADO</b> - Mapeo Gilmer Motors", "info");
-addLine("Escribe <b>'import'</b> para cargar el archivo .dat");
+addLine("<b>[SISTEMA LISTO]</b> - Sincronizado con Python Scanner", "info");
+addLine("Usa <b>'import'</b> para cargar el archivo.");
 
 async function decrypt(file) {
     const ab = await file.arrayBuffer();
@@ -166,29 +165,38 @@ async function decrypt(file) {
 }
 
 function updateVal(name, val) {
-    if(!editor.value) return addLine("Error: No hay archivo cargado.", "error");
+    if(!editor.value) return addLine("Error: No hay datos.", "error");
     const id = GD_KEYS[name];
-    if(!id) return addLine(`Clave '${name}' no reconocida.`, "error");
+    if(!id) return addLine("Comando inválido.", "error");
 
     let xml = editor.value;
-    // Buscamos el bloque GS_value para evitar errores
+    // Regex que busca tanto <s> como <i> basándose en tu implementación de Python
     const regexS = new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)`);
     const regexI = new RegExp(`(<k>${id}</k><i>)(-?\\d*)(</i>)`);
 
-    if(regexS.test(xml)) xml = xml.replace(regexS, `$1${val}$3`);
-    else if(regexI.test(xml)) xml = xml.replace(regexI, `$1${val}$3`);
+    if(regexS.test(xml)) {
+        xml = xml.replace(regexS, `$1${val}$3`);
+        addLine(`[✓] ${name.toUpperCase()} (ID ${id}) actualizado como String.`, "success");
+    } else if(regexI.test(xml)) {
+        xml = xml.replace(regexI, `$1${val}$3`);
+        addLine(`[✓] ${name.toUpperCase()} (ID ${id}) actualizado como Integer.`, "success");
+    } else {
+        // Si no existe, lo insertamos en el bloque GS_value como String por defecto
+        const tag = '<k>GS_value</k><d>';
+        xml = xml.replace(tag, tag + `<k>${id}</k><s>${val}</s>`);
+        addLine(`[+] ${name.toUpperCase()} creado de nuevo.`, "info");
+    }
     
     editor.value = xml;
-    addLine(`[✓] ${name.toUpperCase()} fijado en ${val}`, "success");
 }
 
 function showDashboard() {
     const xml = editor.value;
-    addLine("<br><b class='white'>--- TUS STATS REALES (DASHBOARD) ---</b>", "");
+    addLine("<br><b>--- LECTURA DE VALORES REALES ---</b>", "white");
     for (const [name, id] of Object.entries(GD_KEYS)) {
-        const mS = xml.match(new RegExp(`<k>${id}</k><s>(\\d+)</s>`));
-        const mI = xml.match(new RegExp(`<k>${id}</k><i>(\\d+)</i>`));
-        const val = mS ? mS[1] : (mI ? mI[1] : '0');
+        // Regex idéntico al de tu script: <k>ID</k><[si]>(\d+)</[si]>
+        const match = xml.match(new RegExp(`<k>${id}</k><[si]>(\\d+)</[si]>`));
+        const val = match ? match[1] : '0';
         
         addLine(`
             <div class="stat-row">
@@ -198,7 +206,6 @@ function showDashboard() {
             </div>
         `);
     }
-    addLine(" ");
 }
 
 cmdInput.onkeydown = (e) => {
@@ -212,17 +219,17 @@ cmdInput.onkeydown = (e) => {
         else if(p[0] === 'stat') showDashboard();
         else if(p[0] === 'save') btnFinal.click();
         else if(p[0] === 'clear') historyDiv.innerHTML = '';
-        else if(p[0] === 'help') addLine("Comandos: import, stat, [item] add [n], save, clear");
         else if(p.length === 3 && p[1] === 'add') updateVal(p[0], p[2]);
+        else if(p[0] === 'help') addLine("import, stat, [star/demon/usercoin/orb/diamond/moon] add [n], save");
     }
 };
 
 fileInput.onchange = async (e) => {
     try {
         editor.value = await decrypt(e.target.files[0]);
-        addLine("SINCRO: Archivo cargado correctamente.", "success");
+        addLine("SINCRO: CCGameManager cargado.", "success");
         showDashboard();
-    } catch(err) { addLine("ERROR AL LEER: El archivo no es válido.", "error"); }
+    } catch(err) { addLine("FALLO: Error al desencriptar.", "error"); }
 };
 
 btnFinal.onclick = () => {
@@ -237,7 +244,7 @@ btnFinal.onclick = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'CCGameManager.dat'; a.click();
-    addLine("SAVE: Archivo generado listo para descargar.", "success");
+    addLine("DESCARGA: Archivo listo para Wine.", "success");
 };
 </script>
 </body>
