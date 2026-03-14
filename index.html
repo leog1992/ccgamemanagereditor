@@ -2,58 +2,129 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gilmer Motors - GD Triple Mirror v3.7</title>
+    <title>Gilmer Motors - GD Multi-Lang v3.8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
-        :root { --bg: #0a0a0a; --term: #121212; --blue: #33aaff; --green: #5af78e; }
+        :root { --bg: #0a0a0a; --term: #121212; --blue: #33aaff; --green: #5af78e; --warn: #ffcc00; }
         body { background: var(--bg); font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; overflow: hidden; }
-        #window { width: 95%; max-width: 850px; height: 620px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 40px rgba(0, 170, 255, 0.2); }
-        .header { background: #222; padding: 12px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; letter-spacing: 1px; }
+        #window { width: 95%; max-width: 900px; height: 650px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 40px rgba(0, 170, 255, 0.2); }
+        .header { background: #222; padding: 12px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
         .body { flex: 1; padding: 20px; overflow: hidden; display: flex; flex-direction: column; }
-        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; line-height: 1.5; }
+        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; line-height: 1.4; }
         .input-area { display: flex; border-top: 1px solid #333; padding-top: 12px; }
         #cmd { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; font-size: 14px; }
-        .success { color: var(--green); } .error { color: #ff5555; } .info { color: #00ffff; }
+        .success { color: var(--green); } .error { color: #ff5555; } .info { color: #00ffff; } .warning { color: var(--warn); }
         .stat-row { display: grid; grid-template-columns: 200px 100px 150px; border-bottom: 1px solid #222; padding: 5px 0; }
         #file-input { display: none; }
-        .btn-download { background: #1a1a1a; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer; margin-top: 10px; font-family: inherit; transition: 0.3s; }
-        .btn-download:hover { background: var(--green); color: #000; }
+        .controls { display: flex; gap: 10px; margin-top: 10px; }
+        .btn { background: #1a1a1a; border: 1px solid var(--blue); color: var(--blue); padding: 8px 15px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 12px; }
+        .btn:hover { background: var(--blue); color: #000; }
+        .btn-green { border-color: var(--green); color: var(--green); }
+        .btn-green:hover { background: var(--green); color: #000; }
+        .warning-box { border: 1px solid var(--warn); padding: 10px; color: var(--warn); font-size: 12px; margin-bottom: 10px; border-radius: 4px; display: none; }
     </style>
 </head>
 <body>
 
 <div id="window">
-    <div class="header">GILMER MOTORS - GD ENGINE v3.7 [TRIPLE MIRROR MODE]</div>
+    <div class="header">
+        <span id="title-text">GILMER MOTORS - GD ENGINE v3.8</span>
+        <button class="btn" onclick="toggleLang()" id="lang-btn">Switch to English</button>
+    </div>
     <div class="body">
+        <div id="warning-msg" class="warning-box"></div>
         <div id="history"></div>
         <div class="input-area">
             <span style="color:var(--green); margin-right:10px;">User@nobara:~$</span>
-            <input type="text" id="cmd" autofocus spellcheck="false" placeholder="Escribe 'import' para comenzar...">
+            <input type="text" id="cmd" autofocus spellcheck="false">
         </div>
-        <button id="multi-save" class="btn-download" style="display:none;">GENERAR TRIPLE RESPALDO (.DAT, .DAT2, .BAK)</button>
+        <div class="controls">
+            <button id="btn-import" class="btn" onclick="document.getElementById('file-input').click()">IMPORT</button>
+            <button id="btn-save" class="btn btn-green" onclick="exportAll()" style="display:none;">SAVE ALL (3x)</button>
+        </div>
     </div>
 </div>
 
 <input type="file" id="file-input">
 
 <script>
+let currentXML = "";
+let currentLang = 'es';
+
+const text = {
+    es: {
+        welcome: "<b>[SISTEMA LISTO]</b> Modo Multi-lenguaje activado.",
+        warn: "<b>AVISO:</b> Orbes e Diamantes suelen resetearse por seguridad del servidor. Estrellas y Demons son más estables.",
+        import_ok: "SINCRO: Archivo cargado en memoria RAM.",
+        err_decrypt: "ERROR: No se pudo descifrar el archivo.",
+        update: "[OK] {name} actualizado a {val}",
+        inject: "[!] ID {id} inyectado.",
+        save_start: "Iniciando triple descarga...",
+        save_finish: "<b>PROCESO COMPLETADO.</b> Reemplaza los 3 archivos en Wine.",
+        lang_btn: "English Mode",
+        stats_title: "<br><b>ESTADÍSTICAS EN MEMORIA:</b>",
+        import_prompt: "Escribe 'import' o usa el botón inferior."
+    },
+    en: {
+        welcome: "<b>[SYSTEM READY]</b> Multi-language mode active.",
+        warn: "<b>NOTICE:</b> Orbs and Diamonds usually reset due to server security. Stars and Demons are more stable.",
+        import_ok: "SYNC: File loaded into RAM memory.",
+        err_decrypt: "ERROR: Could not decrypt the file.",
+        update: "[OK] {name} updated to {val}",
+        inject: "[!] ID {id} injected.",
+        save_start: "Starting triple download...",
+        save_finish: "<b>PROCESS COMPLETE.</b> Replace all 3 files in Wine.",
+        lang_btn: "Modo Español",
+        stats_title: "<br><b>MEMORY STATISTICS:</b>",
+        import_prompt: "Type 'import' or use the button below."
+    }
+};
+
+const GD_KEYS = { 'star': '6', 'demon': '5', 'usercoin': '12', 'orb': '14', 'diamond': '13', 'moon': '28', 'secret': '8' };
+
 const historyDiv = document.getElementById('history');
 const cmdInput = document.getElementById('cmd');
 const fileInput = document.getElementById('file-input');
-const saveBtn = document.getElementById('multi-save');
+const warnBox = document.getElementById('warning-msg');
 
-let currentXML = "";
-const GD_KEYS = { 'star': '6', 'demon': '5', 'usercoin': '12', 'orb': '14', 'diamond': '13', 'moon': '28', 'secret': '8' };
-
-function addLine(text, cls = '') {
+function addLine(msg, cls = '') {
     const div = document.createElement('div');
-    div.className = cls; div.innerHTML = text;
+    div.className = cls; div.innerHTML = msg;
     historyDiv.appendChild(div);
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[!] TRIPLE MIRROR ACTIVADO</b>", "info");
-addLine("Este script descargará 3 archivos idénticos para evitar la autocorrección del juego.");
+function toggleLang() {
+    currentLang = currentLang === 'es' ? 'en' : 'es';
+    document.getElementById('lang-btn').innerText = text[currentLang].lang_btn;
+    warnBox.innerHTML = text[currentLang].warn;
+    addLine(`Language changed to ${currentLang.toUpperCase()}`, "info");
+}
+
+function updateVal(name, newVal) {
+    if(!currentXML) return;
+    const id = GD_KEYS[name];
+    if(!id) return;
+
+    const regex = new RegExp(`(<k>${id}</k><[sir]>)([^<]*)(</[sir]>)`, 'g');
+    if(regex.test(currentXML)) {
+        currentXML = currentXML.replace(regex, `$1${newVal}$3`);
+        addLine(text[currentLang].update.replace('{name}', name.toUpperCase()).replace('{val}', newVal), "success");
+    } else {
+        currentXML = currentXML.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${newVal}</s>`);
+        addLine(text[currentLang].inject.replace('{id}', id), "info");
+    }
+}
+
+function showStats() {
+    if(!currentXML) return;
+    addLine(text[currentLang].stats_title, "info");
+    for (const [name, id] of Object.entries(GD_KEYS)) {
+        const match = currentXML.match(new RegExp(`<k>${id}</k><[sir]>([^<]*)</[sir]>`));
+        const val = match ? match[1] : "---";
+        addLine(`<div class="stat-row"><span>${name.toUpperCase()}</span><span>${val}</span><span style="color:#444">ID ${id}</span></div>`);
+    }
+}
 
 async function decrypt(file) {
     const ab = await file.arrayBuffer();
@@ -65,54 +136,6 @@ async function decrypt(file) {
     for (let i = 0; i < bin.length; i++) gBytes[i] = bin.charCodeAt(i);
     return new TextDecoder().decode(pako.inflate(gBytes));
 }
-
-function updateVal(name, newVal) {
-    if(!currentXML) return addLine("ERROR: Archivo no cargado.", "error");
-    const id = GD_KEYS[name];
-    if(!id) return addLine("ID desconocida.", "error");
-
-    const regex = new RegExp(`(<k>${id}</k><[sir]>)([^<]*)(</[sir]>)`, 'g');
-    if(regex.test(currentXML)) {
-        currentXML = currentXML.replace(regex, `$1${newVal}$3`);
-        addLine(`[OK] ${name.toUpperCase()} actualizado a ${newVal}`, "success");
-    } else {
-        currentXML = currentXML.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${newVal}</s>`);
-        addLine(`[!] ID ${id} inyectado.`, "info");
-    }
-}
-
-function showStats() {
-    if(!currentXML) return;
-    addLine("<br><b>ESTADÍSTICAS EN MEMORIA:</b>", "info");
-    for (const [name, id] of Object.entries(GD_KEYS)) {
-        const match = currentXML.match(new RegExp(`<k>${id}</k><[sir]>([^<]*)</[sir]>`));
-        const val = match ? match[1] : "---";
-        addLine(`<div class="stat-row"><span>${name.toUpperCase()}</span><span>${val}</span><span style="color:#444">ID ${id}</span></div>`);
-    }
-}
-
-cmdInput.onkeydown = (e) => {
-    if (e.key === 'Enter') {
-        const raw = cmdInput.value.trim();
-        const p = raw.toLowerCase().split(' ');
-        addLine(`<span>~$</span> ${raw}`);
-        cmdInput.value = '';
-
-        if(p[0] === 'import') fileInput.click();
-        else if(p[0] === 'stat') showStats();
-        else if(p[0] === 'save') exportAll();
-        else if(p.length === 3 && p[1] === 'add') { updateVal(p[0], p[2]); showStats(); }
-    }
-};
-
-fileInput.onchange = async (e) => {
-    try {
-        currentXML = await decrypt(e.target.files[0]);
-        addLine("SINCRO: Archivo cargado en memoria RAM.", "success");
-        saveBtn.style.display = "block";
-        showStats();
-    } catch(err) { addLine("ERROR: No se pudo descifrar.", "error"); }
-};
 
 function downloadBlob(data, fileName) {
     const blob = new Blob([data], {type: 'application/octet-stream'});
@@ -132,25 +155,42 @@ function exportAll() {
         const final = new Uint8Array(b64.length);
         for (let i = 0; i < b64.length; i++) final[i] = b64.charCodeAt(i) ^ 11;
         
-        // Triple descarga con nombres específicos
-        addLine("Generando descarga 1/3: CCGameManager.dat...", "info");
+        addLine(text[currentLang].save_start, "info");
         downloadBlob(final, 'CCGameManager.dat');
-        
+        setTimeout(() => downloadBlob(final, 'CCGameManager2.dat'), 800);
         setTimeout(() => {
-            addLine("Generando descarga 2/3: CCGameManager2.dat...", "info");
-            downloadBlob(final, 'CCGameManager2.dat');
-        }, 1000);
-
-        setTimeout(() => {
-            addLine("Generando descarga 3/3: CCGameManager.dat.bak...", "info");
             downloadBlob(final, 'CCGameManager.dat.bak');
-            addLine("<b>PROCESO COMPLETADO.</b> Reemplaza los 3 archivos en tu carpeta de Wine.", "success");
-        }, 2000);
-
-    } catch(e) { addLine("ERROR AL EXPORTAR.", "error"); }
+            addLine(text[currentLang].save_finish, "success");
+        }, 1600);
+    } catch(e) { addLine("ERROR EXPORT", "error"); }
 }
 
-saveBtn.onclick = exportAll;
+fileInput.onchange = async (e) => {
+    try {
+        currentXML = await decrypt(e.target.files[0]);
+        addLine(text[currentLang].import_ok, "success");
+        document.getElementById('btn-save').style.display = "block";
+        warnBox.style.display = "block";
+        warnBox.innerHTML = text[currentLang].warn;
+        showStats();
+    } catch(err) { addLine(text[currentLang].err_decrypt, "error"); }
+};
+
+cmdInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+        const raw = cmdInput.value.trim();
+        const p = raw.toLowerCase().split(' ');
+        addLine(`<span>~$</span> ${raw}`);
+        cmdInput.value = '';
+        if(p[0] === 'import') fileInput.click();
+        else if(p[0] === 'stat') showStats();
+        else if(p[0] === 'save') exportAll();
+        else if(p.length === 3 && p[1] === 'add') { updateVal(p[0], p[2]); showStats(); }
+    }
+};
+
+addLine(text[currentLang].welcome, "info");
+addLine(text[currentLang].import_prompt);
 </script>
 </body>
 </html>
