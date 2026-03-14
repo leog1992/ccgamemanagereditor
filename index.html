@@ -2,45 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gilmer Motors - GD Save Engine v3.4</title>
+    <title>Gilmer Motors - GD Save Engine v3.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
         :root { --bg: #0a0a0a; --term: #121212; --blue: #33aaff; --green: #5af78e; }
         body { background: var(--bg); font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; }
         #window { width: 90%; max-width: 850px; height: 600px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0, 170, 255, 0.2); }
-        .header { background: #222; padding: 10px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; }
+        .header { background: #222; padding: 10px; border-bottom: 1px solid #333; font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase; }
         .body { flex: 1; padding: 20px; overflow: hidden; display: flex; flex-direction: column; }
-        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; }
+        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; line-height: 1.4; }
         .input-area { display: flex; border-top: 1px solid #333; padding-top: 10px; }
-        #cmd { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; }
+        #cmd { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; font-size: 14px; }
         .success { color: var(--green); } .error { color: #ff5555; } .info { color: #00ffff; }
         .stat-row { display: grid; grid-template-columns: 180px 100px 150px; border-bottom: 1px solid #222; padding: 4px 0; }
-        #file-input, #editor { display: none; }
+        #file-input { display: none; }
     </style>
 </head>
 <body>
 
 <div id="window">
-    <div class="header">GILMER MOTORS - TOTAL OVERWRITE MODE v3.4</div>
+    <div class="header">GILMER MOTORS - GD ENGINE v3.5 (HARD OVERWRITE)</div>
     <div class="body">
         <div id="history"></div>
         <div class="input-area">
-            <span style="color:var(--green); margin-right:10px;">~$</span>
+            <span style="color:var(--green); margin-right:10px;">User@nobara:~$</span>
             <input type="text" id="cmd" autofocus spellcheck="false">
         </div>
     </div>
 </div>
 
 <input type="file" id="file-input">
-<textarea id="editor"></textarea>
 
 <script>
 const historyDiv = document.getElementById('history');
 const cmdInput = document.getElementById('cmd');
 const fileInput = document.getElementById('file-input');
-const editor = document.getElementById('editor');
 
-// Tu mapeo verificado por Python
+// ESTADO GLOBAL DEL XML
+let currentXML = "";
+
 const GD_KEYS = {
     'star': '6', 'demon': '5', 'usercoin': '12', 'orb': '14', 'diamond': '13', 'moon': '28', 'secret': '8'
 };
@@ -52,8 +52,8 @@ function addLine(text, cls = '') {
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[MODO AGRESIVO ACTIVADO]</b>", "info");
-addLine("Este modo reemplaza TODAS las instancias de la estadística en el XML.");
+addLine("<b>[!] MOTOR v3.5 CARGADO</b>", "info");
+addLine("Comandos: <b>import</b>, <b>stat</b>, <b>[stat] add [valor]</b>, <b>save</b>");
 
 async function decrypt(file) {
     const ab = await file.arrayBuffer();
@@ -67,45 +67,29 @@ async function decrypt(file) {
 }
 
 function updateVal(name, newVal) {
-    if(!editor.value) return addLine("ERROR: Importa el archivo primero.", "error");
+    if(!currentXML) return addLine("ERROR: No hay archivo en memoria.", "error");
     const id = GD_KEYS[name];
     if(!id) return addLine("ID no válida.", "error");
 
-    let xml = editor.value;
+    // Buscamos todas las variantes (s, i, r) con regex global
+    const regex = new RegExp(`(<k>${id}</k><[sir]>)([^<]*)(</[sir]>)`, 'g');
     
-    // REEMPLAZO TOTAL: Buscamos la clave y cambiamos su valor sin importar dónde esté (GS_value u otros)
-    // El regex ahora es global 'g' para atrapar duplicados
-    const patterns = [
-        { reg: new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)`, 'g'), type: "String" },
-        { reg: new RegExp(`(<k>${id}</k><i>)([^<]*)(</i>)`, 'g'), type: "Integer" }
-    ];
-
-    let count = 0;
-    patterns.forEach(p => {
-        if(p.reg.test(xml)) {
-            xml = xml.replace(p.reg, `$1${newVal}$3`);
-            count++;
-        }
-    });
-
-    if (count > 0) {
-        editor.value = xml;
-        addLine(`[EXITO] Se actualizaron ${count} campos para ${name.toUpperCase()}.`, "success");
-        addLine(`Valor nuevo: ${newVal}`, "white");
+    if(regex.test(currentXML)) {
+        currentXML = currentXML.replace(regex, `$1${newVal}$3`);
+        addLine(`[EXITO] ${name.toUpperCase()} (ID ${id}) cambiado a ${newVal}`, "success");
     } else {
-        // Si no existe, lo inyectamos forzosamente en el bloque principal
-        xml = xml.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${newVal}</s>`);
-        editor.value = xml;
-        addLine(`[INYECCIÓN] La estadística no existía, se ha creado de cero.`, "info");
+        // Inyección si no existe
+        currentXML = currentXML.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${newVal}</s>`);
+        addLine(`[INYECCIÓN] ID ${id} creado de cero.`, "info");
     }
 }
 
 function showStats() {
-    const xml = editor.value;
-    addLine("<br><b>ESTADO DEL ARCHIVO:</b>", "info");
+    if(!currentXML) return addLine("Importa un archivo primero.", "error");
+    addLine("<br><b>LECTURA DE MEMORIA ACTUAL:</b>", "info");
     for (const [name, id] of Object.entries(GD_KEYS)) {
-        const match = xml.match(new RegExp(`<k>${id}</k><[si]>([^<]*)</[si]>`));
-        const val = match ? match[1] : "No detectado";
+        const match = currentXML.match(new RegExp(`<k>${id}</k><[sir]>([^<]*)</[sir]>`));
+        const val = match ? match[1] : "0";
         addLine(`<div class="stat-row"><span>${name.toUpperCase()}</span><span>${val}</span><span style="color:#444">ID ${id}</span></div>`);
     }
 }
@@ -127,25 +111,28 @@ cmdInput.onkeydown = (e) => {
 
 fileInput.onchange = async (e) => {
     try {
-        editor.value = await decrypt(e.target.files[0]);
-        addLine("SINCRO: CCGameManager descifrado correctamente.", "success");
+        currentXML = await decrypt(e.target.files[0]);
+        addLine("SINCRO: Archivo cargado en memoria RAM.", "success");
         showStats();
-    } catch(err) { addLine("ERROR: Fallo al abrir el archivo.", "error"); }
+    } catch(err) { addLine("ERROR: No se pudo descifrar.", "error"); }
 };
 
 function exportFile() {
-    if(!editor.value) return;
-    const gzipped = pako.gzip(new TextEncoder().encode(editor.value));
-    let binary = '';
-    for (let i = 0; i < gzipped.length; i++) binary += String.fromCharCode(gzipped[i]);
-    const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
-    const final = new Uint8Array(b64.length);
-    for (let i = 0; i < b64.length; i++) final[i] = b64.charCodeAt(i) ^ 11;
-    const blob = new Blob([final], {type: 'application/octet-stream'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'CCGameManager.dat'; a.click();
-    addLine("SAVE: Archivo exportado. Reemplázalo en tu carpeta de Wine.", "success");
+    if(!currentXML) return;
+    try {
+        const gzipped = pako.gzip(new TextEncoder().encode(currentXML));
+        let binary = '';
+        for (let i = 0; i < gzipped.length; i++) binary += String.fromCharCode(gzipped[i]);
+        const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
+        const final = new Uint8Array(b64.length);
+        for (let i = 0; i < b64.length; i++) final[i] = b64.charCodeAt(i) ^ 11;
+        
+        const blob = new Blob([final], {type: 'application/octet-stream'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'CCGameManager.dat'; a.click();
+        addLine("SAVE: Archivo generado. Verifica con 'stat' antes de cerrar.", "success");
+    } catch(e) { addLine("ERROR AL GUARDAR: " + e, "error"); }
 }
 </script>
 </body>
