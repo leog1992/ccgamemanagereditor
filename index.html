@@ -2,156 +2,57 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Nobara Terminal - GD Save Editor</title>
+    <title>Gilmer Motors - GD Save Engine v3.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
-        :root {
-            --bg-dark: #0a0a0a;
-            --terminal-bg: #121212;
-            --border-blue: #33aaff;
-            --text-blue: #33aaff;
-            --prompt-green: #5af78e;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            font-family: 'Consolas', 'Monaco', monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        #terminal-window {
-            width: 90%;
-            max-width: 850px;
-            height: 600px;
-            background-color: var(--terminal-bg);
-            border: 2px solid var(--border-blue);
-            border-radius: 8px;
-            box-shadow: 0 0 30px rgba(0, 170, 255, 0.25);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .terminal-header {
-            background-color: #222;
-            padding: 10px 15px;
-            display: flex;
-            align-items: center;
-            border-bottom: 1px solid #333;
-        }
-
-        .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
-        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
-        .title { color: #888; font-size: 11px; margin-left: 10px; font-weight: bold; text-transform: uppercase; }
-
-        .terminal-body {
-            flex: 1;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        #history { 
-            flex: 1;
-            overflow-y: auto; 
-            color: var(--text-blue);
-            font-size: 14px;
-            margin-bottom: 15px;
-            line-height: 1.5;
-        }
-
-        .input-area { 
-            display: flex; 
-            align-items: center;
-            border-top: 1px solid #333;
-            padding-top: 15px;
-        }
-        
-        #cmd-input {
-            background: transparent;
-            border: none;
-            color: #fff;
-            outline: none;
-            flex: 1;
-            font-family: inherit;
-            font-size: 14px;
-            padding-left: 10px;
-        }
-
-        .prefix { color: var(--prompt-green); font-weight: bold; }
-        
-        /* Dashboard Estilo Python */
-        .stat-row { 
-            display: grid; 
-            grid-template-columns: 200px 100px 180px; 
-            border-bottom: 1px solid #222;
-            padding: 4px 0;
-        }
-        .stat-name { color: var(--text-blue); }
-        .stat-val { color: #fff; font-weight: bold; }
-        .stat-id { color: #555; font-size: 12px; }
-
-        .success { color: #5af78e; }
-        .error { color: #ff5555; }
-        .info { color: #00ffff; }
-
-        #history::-webkit-scrollbar { width: 6px; }
-        #history::-webkit-scrollbar-thumb { background: var(--border-blue); border-radius: 10px; }
-        #file-input, #editor, #btn-final { display: none; }
+        :root { --bg: #0a0a0a; --term: #121212; --blue: #33aaff; --green: #5af78e; }
+        body { background: var(--bg); font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; }
+        #window { width: 90%; max-width: 850px; height: 600px; background: var(--term); border: 2px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0, 170, 255, 0.2); }
+        .header { background: #222; padding: 10px; display: flex; border-bottom: 1px solid #333; font-size: 11px; font-weight: bold; color: #888; }
+        .body { flex: 1; padding: 20px; overflow: hidden; display: flex; flex-direction: column; }
+        #history { flex: 1; overflow-y: auto; font-size: 14px; color: var(--blue); margin-bottom: 10px; }
+        .input-area { display: flex; border-top: 1px solid #333; padding-top: 10px; }
+        #cmd { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; }
+        .stat-row { display: grid; grid-template-columns: 180px 100px 150px; border-bottom: 1px solid #222; padding: 5px 0; }
+        .success { color: var(--green); } .error { color: #ff5555; } .info { color: #00ffff; }
+        #file-input, #editor { display: none; }
     </style>
 </head>
 <body>
 
-<div id="terminal-window">
-    <div class="terminal-header">
-        <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
-        <span class="title">GILMER MOTORS - GD SAVE ENGINE v3.2</span>
-    </div>
-    <div class="terminal-body">
+<div id="window">
+    <div class="header">GILMER MOTORS - GD ENGINE v3.3 (DEEP REPLACEMENT MODE)</div>
+    <div class="body">
         <div id="history"></div>
         <div class="input-area">
-            <span class="prefix">User@nobara-pc:~$</span>
-            <input type="text" id="cmd-input" autofocus spellcheck="false">
+            <span style="color:var(--green); margin-right:10px;">~$</span>
+            <input type="text" id="cmd" autofocus spellcheck="false">
         </div>
     </div>
 </div>
 
 <input type="file" id="file-input">
 <textarea id="editor"></textarea>
-<button id="btn-final"></button>
 
 <script>
 const historyDiv = document.getElementById('history');
-const cmdInput = document.getElementById('cmd-input');
+const cmdInput = document.getElementById('cmd');
 const fileInput = document.getElementById('file-input');
 const editor = document.getElementById('editor');
-const btnFinal = document.getElementById('btn-final');
 
-// MAPEO DETECTADO POR TU SCRIPT PYTHON
 const GD_KEYS = {
-    'star': '6',        
-    'demon': '5',       
-    'usercoin': '12',   
-    'orb': '14',       
-    'diamond': '13',    
-    'moon': '28'        
+    'star': '6', 'demon': '5', 'usercoin': '12', 'orb': '14', 'diamond': '13', 'moon': '28', 'secret': '8'
 };
 
 function addLine(text, cls = '') {
     const div = document.createElement('div');
-    div.className = cls;
-    div.innerHTML = text;
+    div.className = cls; div.innerHTML = text;
     historyDiv.appendChild(div);
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-addLine("<b>[SISTEMA LISTO]</b> - Sincronizado con Python Scanner", "info");
-addLine("Usa <b>'import'</b> para cargar el archivo.");
+addLine("<b>[SISTEMA CRÍTICO]</b> Cargado con éxito.", "info");
+addLine("Escribe 'import' para empezar.");
 
 async function decrypt(file) {
     const ab = await file.arrayBuffer();
@@ -165,46 +66,46 @@ async function decrypt(file) {
 }
 
 function updateVal(name, val) {
-    if(!editor.value) return addLine("Error: No hay datos.", "error");
+    if(!editor.value) return addLine("ERROR: Importa un archivo primero.", "error");
     const id = GD_KEYS[name];
-    if(!id) return addLine("Comando inválido.", "error");
+    if(!id) return addLine("Atributo no válido.", "error");
 
     let xml = editor.value;
-    // Regex que busca tanto <s> como <i> basándose en tu implementación de Python
-    const regexS = new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)`);
-    const regexI = new RegExp(`(<k>${id}</k><i>)(-?\\d*)(</i>)`);
-
-    if(regexS.test(xml)) {
-        xml = xml.replace(regexS, `$1${val}$3`);
-        addLine(`[✓] ${name.toUpperCase()} (ID ${id}) actualizado como String.`, "success");
-    } else if(regexI.test(xml)) {
-        xml = xml.replace(regexI, `$1${val}$3`);
-        addLine(`[✓] ${name.toUpperCase()} (ID ${id}) actualizado como Integer.`, "success");
-    } else {
-        // Si no existe, lo insertamos en el bloque GS_value como String por defecto
-        const tag = '<k>GS_value</k><d>';
-        xml = xml.replace(tag, tag + `<k>${id}</k><s>${val}</s>`);
-        addLine(`[+] ${name.toUpperCase()} creado de nuevo.`, "info");
-    }
     
+    // EXPRESIONES REGULARES PARA BUSCAR CUALQUIER TIPO DE DATO (s, i, r)
+    const patterns = [
+        new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)` , 'g'),
+        new RegExp(`(<k>${id}</k><i>)([^<]*)(</i>)` , 'g'),
+        new RegExp(`(<k>${id}</k><r>)([^<]*)(</r>)` , 'g')
+    ];
+
+    let found = false;
+    patterns.forEach((reg, index) => {
+        if(reg.test(xml)) {
+            xml = xml.replace(reg, `$1${val}$3`);
+            found = true;
+            const tipos = ["String", "Integer", "Real"];
+            addLine(`[MODIFICADO] ${name} (ID ${id}) detectado como ${tipos[index]}.`, "success");
+        }
+    });
+
+    if(!found) {
+        addLine(`[INFO] ID ${id} no existía. Creando nueva entrada...`, "info");
+        // Insertar después de la cabecera de valores
+        xml = xml.replace('<k>GS_value</k><d>', `<k>GS_value</k><d><k>${id}</k><s>${val}</s>`);
+    }
+
     editor.value = xml;
+    addLine(`Confirmado: ${name} ahora es ${val}. Ejecuta 'stat' para verificar.`, "white");
 }
 
-function showDashboard() {
+function showStats() {
     const xml = editor.value;
-    addLine("<br><b>--- LECTURA DE VALORES REALES ---</b>", "white");
+    addLine("<br><b>LECTURA ACTUAL DEL XML:</b>", "info");
     for (const [name, id] of Object.entries(GD_KEYS)) {
-        // Regex idéntico al de tu script: <k>ID</k><[si]>(\d+)</[si]>
-        const match = xml.match(new RegExp(`<k>${id}</k><[si]>(\\d+)</[si]>`));
-        const val = match ? match[1] : '0';
-        
-        addLine(`
-            <div class="stat-row">
-                <span class="stat-name">${name.toUpperCase()}</span>
-                <span class="stat-val">${val}</span>
-                <span class="stat-id">ID ${id}</span>
-            </div>
-        `);
+        const match = xml.match(new RegExp(`<k>${id}</k><[sir]>([^<]*)</[sir]>`));
+        const val = match ? match[1] : "0";
+        addLine(`<div class="stat-row"><span>${name.toUpperCase()}</span><span>${val}</span><span style="color:#444">ID ${id}</span></div>`);
     }
 }
 
@@ -212,27 +113,26 @@ cmdInput.onkeydown = (e) => {
     if (e.key === 'Enter') {
         const raw = cmdInput.value.trim();
         const p = raw.toLowerCase().split(' ');
-        addLine(`<span class="prefix">~$</span> ${raw}`);
+        addLine(`<span>~$</span> ${raw}`);
         cmdInput.value = '';
 
         if(p[0] === 'import') fileInput.click();
-        else if(p[0] === 'stat') showDashboard();
-        else if(p[0] === 'save') btnFinal.click();
+        else if(p[0] === 'stat') showStats();
+        else if(p[0] === 'save') exportFile();
         else if(p[0] === 'clear') historyDiv.innerHTML = '';
         else if(p.length === 3 && p[1] === 'add') updateVal(p[0], p[2]);
-        else if(p[0] === 'help') addLine("import, stat, [star/demon/usercoin/orb/diamond/moon] add [n], save");
     }
 };
 
 fileInput.onchange = async (e) => {
     try {
         editor.value = await decrypt(e.target.files[0]);
-        addLine("SINCRO: CCGameManager cargado.", "success");
-        showDashboard();
-    } catch(err) { addLine("FALLO: Error al desencriptar.", "error"); }
+        addLine("SINCRO: CCGameManager descifrado.", "success");
+        showStats();
+    } catch(err) { addLine("ERROR FATAL: El archivo está corrupto o es de otra versión.", "error"); }
 };
 
-btnFinal.onclick = () => {
+function exportFile() {
     if(!editor.value) return;
     const gzipped = pako.gzip(new TextEncoder().encode(editor.value));
     let binary = '';
@@ -244,8 +144,8 @@ btnFinal.onclick = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'CCGameManager.dat'; a.click();
-    addLine("DESCARGA: Archivo listo para Wine.", "success");
-};
+    addLine("DESCARGA: Archivo listo para Wine/AppData.", "success");
+}
 </script>
 </body>
 </html>
