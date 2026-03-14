@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Nobara Terminal - GD Save Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0d0d0d;
+            --terminal-bg: #121212;
+            --border-blue: #33aaff;
+            --text-blue: #33aaff;
+            --prompt-green: #5af78e;
+            --white: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Consolas', 'Monaco', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #terminal-window {
+            width: 90%;
+            max-width: 850px;
+            height: 600px;
+            background-color: var(--terminal-bg);
+            border: 2px solid var(--border-blue);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 170, 255, 0.25);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .terminal-header {
+            background-color: #222;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .red { background: #ff5f56; }
+        .yellow { background: #ffbd2e; }
+        .green { background: #27c93f; }
+        .title { color: #888; font-size: 11px; margin-left: 10px; font-weight: bold; text-transform: uppercase; }
+
+        .terminal-body {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #history { 
+            flex: 1;
+            overflow-y: auto; 
+            color: var(--text-blue);
+            font-size: 13px;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .input-area { 
+            display: flex; 
+            align-items: center;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+        }
+        
+        #cmd-input {
+            background: transparent;
+            border: none;
+            color: var(--white);
+            outline: none;
+            flex: 1;
+            font-family: inherit;
+            font-size: 14px;
+            padding-left: 10px;
+        }
+
+        .prefix { color: var(--prompt-green); font-weight: bold; }
+        .info { color: #00ffff; }
+        .success { color: #5af78e; }
+        .error { color: #ff5555; }
+        
+        /* Dashboard Table */
+        .dashboard-header { color: var(--white); border-bottom: 2px solid var(--border-blue); margin-top: 10px; padding-bottom: 5px; }
+        .stat-row { 
+            display: grid; 
+            grid-template-columns: 200px 100px 200px; 
+            border-bottom: 1px solid #222;
+            padding: 4px 0;
+        }
+        .stat-name { color: var(--text-blue); }
+        .stat-val { color: var(--white); font-weight: bold; }
+        .stat-id { color: #666; font-size: 11px; }
+
+        #history::-webkit-scrollbar { width: 6px; }
+        #history::-webkit-scrollbar-thumb { background: var(--border-blue); border-radius: 10px; }
+        #file-input, #editor, #btn-final { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="terminal-window">
+    <div class="terminal-header">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+        <span class="title">GILMER MOTORS - GD DASHBOARD v2.9 (LINUX/WINE)</span>
+    </div>
+
+    <div class="terminal-body">
+        <div id="history"></div>
+        <div class="input-area">
+            <span class="prefix">User@nobara-pc:~$</span>
+            <input type="text" id="cmd-input" autofocus spellcheck="false">
+        </div>
+    </div>
+</div>
+
+<input type="file" id="file-input">
+<textarea id="editor"></textarea>
+<button id="btn-final"></button>
+
+<script>
+const historyDiv = document.getElementById('history');
+const cmdInput = document.getElementById('cmd-input');
+const fileInput = document.getElementById('file-input');
+const editor = document.getElementById('editor');
+const btnFinal = document.getElementById('btn-final');
+
+// MAPEO REAL BASADO EN TU SCRIPT PYTHON
+const GD_KEYS = {
+    'star': '6',            
+    'diamond': '13',        
+    'mappack': '7',         
+    'secret': '8',          
+    'usercoin': '12',       
+    'demon': '10',          
+    'orb': '14'             
+};
+
+function addLine(text, cls = '') {
+    const div = document.createElement('div');
+    div.className = cls;
+    div.innerHTML = text;
+    historyDiv.appendChild(div);
+    historyDiv.scrollTop = historyDiv.scrollHeight;
+}
+
+addLine("<b>[!] SISTEMA INICIADO</b>", "info");
+addLine("Escribe <b>'import'</b> para leer CCGameManager.dat");
+
+async function decrypt(file) {
+    const ab = await file.arrayBuffer();
+    const xor = new Uint8Array(ab).map(b => b ^ 11);
+    let b64 = new TextDecoder().decode(xor).replace(/[\s\x00-\x1F\x7F-\x9F]/g, "").replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4 !== 0) b64 += '=';
+    const bin = atob(b64);
+    const gBytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) gBytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(pako.inflate(gBytes));
+}
+
+function updateVal(name, val) {
+    if(!editor.value) return addLine("Error: No hay datos.", "error");
+    const id = GD_KEYS[name];
+    if(!id) return addLine(`Error: Clave '${name}' inválida.`, "error");
+
+    let xml = editor.value;
+    // Buscamos <s> (como en tu script re.search) y <i> como respaldo
+    const regexS = new RegExp(`(<k>${id}</k><s>)([^<]*)(</s>)`);
+    const regexI = new RegExp(`(<k>${id}</k><i>)(-?\\d*)(</i>)`);
+
+    if(regexS.test(xml)) xml = xml.replace(regexS, `$1${val}$3`);
+    else if(regexI.test(xml)) xml = xml.replace(regexI, `$1${val}$3`);
+    
+    editor.value = xml;
+    addLine(`[✓] ${name.toUpperCase()} (ID ${id}) actualizado a ${val}`, "success");
+}
+
+function showDashboard() {
+    const xml = editor.value;
+    addLine("<div class='dashboard-header'>GILMER MOTORS - DASHBOARD DE ESTADÍSTICAS</div>", "white");
+    
+    for (const [name, id] of Object.entries(GD_KEYS)) {
+        // Lógica idéntica a tu re.search en Python
+        const mS = xml.match(new RegExp(`<k>${id}</k><s>(\\d+)</s>`));
+        const mI = xml.match(new RegExp(`<k>${id}</k><i>(\\d+)</i>`));
+        
+        const valor = mS ? mS[1] : (mI ? mI[1] : 'N/A');
+        const tipo = mS ? 'String' : (mI ? 'Integer' : 'Not Found');
+
+        addLine(`
+            <div class="stat-row">
+                <span class="stat-name">${name.toUpperCase()}</span>
+                <span class="stat-val">${valor}</span>
+                <span class="stat-id">ID ${id} (${tipo})</span>
+            </div>
+        `);
+    }
+}
+
+cmdInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+        const raw = cmdInput.value.trim();
+        const p = raw.toLowerCase().split(' ');
+        addLine(`<span class="prefix">~$</span> ${raw}`);
+        cmdInput.value = '';
+
+        if(p[0] === 'import') fileInput.click();
+        else if(p[0] === 'stat') showDashboard();
+        else if(p[0] === 'save') btnFinal.click();
+        else if(p[0] === 'clear') historyDiv.innerHTML = '';
+        else if(p.length === 3 && p[1] === 'add') updateVal(p[0], p[2]);
+        else if(p[0] === 'help') addLine("Comandos: import, stat, [name] add [val], save, clear");
+    }
+};
+
+fileInput.onchange = async (e) => {
+    try {
+        editor.value = await decrypt(e.target.files[0]);
+        addLine("SINCRO: Archivo desencriptado correctamente.", "success");
+        showDashboard();
+    } catch(err) { addLine("ERROR: Fallo en la matriz (Gzip/B64).", "error"); }
+};
+
+btnFinal.onclick = () => {
+    if(!editor.value) return;
+    const gzipped = pako.gzip(new TextEncoder().encode(editor.value));
+    let binary = '';
+    for (let i = 0; i < gzipped.length; i++) binary += String.fromCharCode(gzipped[i]);
+    const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
+    const final = new Uint8Array(b64.length);
+    for (let i = 0; i < b64.length; i++) final[i] = b64.charCodeAt(i) ^ 11;
+    const blob = new Blob([final], {type: 'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'CCGameManager.dat'; a.click();
+    addLine("SAVE: Nuevo archivo .dat generado.", "success");
+};
+</script>
+</body>
+</html>
